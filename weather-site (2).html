@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>WorldWeather — Live Global Weather</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:ital,wght@0,300;0,400;1,300&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0a0e1a;
+    --card: #111827;
+    --card2: #1a2235;
+    --accent: #38bdf8;
+    --accent2: #818cf8;
+    --warm: #fb923c;
+    --cold: #67e8f9;
+    --text: #f0f4ff;
+    --muted: #8896b3;
+    --border: rgba(56,189,248,0.15);
+    --glow: rgba(56,189,248,0.08);
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { background: var(--bg); color: var(--text); font-family: 'DM Sans', sans-serif; min-height: 100vh; overflow-x: hidden; }
+  body::before {
+    content: ''; position: fixed; inset: 0;
+    background: radial-gradient(ellipse 80% 60% at 10% 10%, rgba(56,189,248,0.07) 0%, transparent 60%),
+                radial-gradient(ellipse 60% 50% at 90% 80%, rgba(129,140,248,0.07) 0%, transparent 60%);
+    pointer-events: none; z-index: 0;
+  }
+  .container { max-width: 1100px; margin: 0 auto; padding: 0 24px; position: relative; z-index: 1; }
+
+  header { padding: 36px 0 20px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--border); margin-bottom: 48px; }
+  .logo { font-family: 'Syne', sans-serif; font-weight: 800; font-size: 1.6rem; letter-spacing: -0.03em; background: linear-gradient(135deg, var(--accent), var(--accent2)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+  .logo span { color: var(--text); -webkit-text-fill-color: var(--text); }
+  .tagline { font-size: 0.8rem; color: var(--muted); letter-spacing: 0.15em; text-transform: uppercase; }
+
+  .hero { text-align: center; margin-bottom: 56px; }
+  .hero h1 { font-family: 'Syne', sans-serif; font-size: clamp(2.2rem, 5vw, 3.6rem); font-weight: 800; line-height: 1.1; letter-spacing: -0.04em; margin-bottom: 12px; }
+  .hero h1 em { font-style: normal; background: linear-gradient(135deg, var(--accent), var(--accent2)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+  .hero p { color: var(--muted); font-size: 1.05rem; margin-bottom: 36px; }
+
+  .search-bar { display: flex; gap: 12px; max-width: 560px; margin: 0 auto; }
+  .search-bar input { flex: 1; background: var(--card); border: 1px solid var(--border); border-radius: 14px; padding: 16px 22px; color: var(--text); font-family: 'DM Sans', sans-serif; font-size: 1rem; outline: none; transition: border-color 0.2s, box-shadow 0.2s; }
+  .search-bar input::placeholder { color: var(--muted); }
+  .search-bar input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(56,189,248,0.12); }
+  .search-bar button { background: linear-gradient(135deg, var(--accent), var(--accent2)); border: none; border-radius: 14px; padding: 16px 28px; color: #0a0e1a; font-family: 'Syne', sans-serif; font-weight: 700; font-size: 0.95rem; cursor: pointer; transition: opacity 0.2s, transform 0.15s; white-space: nowrap; }
+  .search-bar button:hover { opacity: 0.9; transform: translateY(-1px); }
+
+  /* Quick cities — sadece isim, emoji yok (Windows uyumsuzluğu) */
+  .quick-cities { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; margin-top: 20px; }
+  .quick-cities button { background: var(--card); border: 1px solid var(--border); border-radius: 20px; padding: 7px 16px; color: var(--muted); font-family: 'DM Sans', sans-serif; font-size: 0.88rem; cursor: pointer; transition: all 0.2s; white-space: nowrap; }
+  .quick-cities button:hover { border-color: var(--accent); color: var(--accent); background: var(--glow); }
+
+  /* Main card */
+  .main-card { background: var(--card); border: 1px solid var(--border); border-radius: 24px; padding: 40px; margin-bottom: 32px; display: none; animation: fadeUp 0.4s ease; position: relative; overflow: hidden; }
+  .main-card::before { content: ''; position: absolute; top: -60px; right: -60px; width: 220px; height: 220px; background: radial-gradient(circle, var(--glow) 0%, transparent 70%); pointer-events: none; }
+  .main-card.visible { display: block; }
+  @keyframes fadeUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+
+  .card-top { display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 24px; margin-bottom: 32px; }
+  .city-info h2 { font-family: 'Syne', sans-serif; font-size: 2rem; font-weight: 700; letter-spacing: -0.03em; margin-bottom: 4px; }
+  .city-info .country-line { color: var(--muted); font-size: 0.9rem; }
+  .city-info .country-line span { color: var(--accent); font-weight: 600; }
+  .weather-desc { font-size: 1.1rem; color: var(--text); margin-top: 8px; font-weight: 300; font-style: italic; text-transform: capitalize; }
+  .temp-display { text-align: right; }
+  .temp-big { font-family: 'Syne', sans-serif; font-size: 5rem; font-weight: 800; line-height: 1; letter-spacing: -0.05em; }
+  .temp-big.warm { color: var(--warm); }
+  .temp-big.cold { color: var(--cold); }
+  .temp-big.mild { color: var(--accent); }
+  .weather-emoji { font-size: 3.5rem; display: block; text-align: right; line-height: 1; margin-bottom: 4px; }
+  .feels-like { color: var(--muted); font-size: 0.85rem; margin-top: 4px; }
+  .add-to-saved { background: var(--card2); border: 1px solid var(--border); border-radius: 10px; padding: 8px 18px; color: var(--accent); font-family: 'Syne', sans-serif; font-weight: 600; font-size: 0.8rem; cursor: pointer; transition: all 0.2s; margin-top: 16px; }
+  .add-to-saved:hover { background: rgba(56,189,248,0.1); border-color: var(--accent); }
+  .add-to-saved.saved-state { color: #4ade80; border-color: rgba(74,222,128,0.3); }
+
+  /* STATS — sabit 6 sütun, label tek satır, value tek satır */
+  .stats-grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 12px; margin-top: 8px; }
+  @media (max-width: 800px) { .stats-grid { grid-template-columns: repeat(3, 1fr); } }
+  @media (max-width: 480px)  { .stats-grid { grid-template-columns: repeat(2, 1fr); } }
+
+  .stat-item { background: var(--card2); border: 1px solid var(--border); border-radius: 16px; padding: 14px 12px; }
+  .stat-label {
+    font-size: 0.65rem; color: var(--muted); text-transform: uppercase;
+    letter-spacing: 0.06em; margin-bottom: 8px;
+    /* TEK SATIR — kesinlikle taşmaz */
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .stat-value {
+    font-family: 'Syne', sans-serif; font-size: 1.1rem; font-weight: 700; color: var(--text);
+    /* TEK SATIR — kesinlikle taşmaz */
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+
+  /* Saved cities */
+  .saved-section { margin-top: 16px; }
+  .section-title { font-family: 'Syne', sans-serif; font-size: 1rem; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; color: var(--muted); margin-bottom: 20px; display: flex; align-items: center; gap: 10px; }
+  .section-title::after { content: ''; flex: 1; height: 1px; background: var(--border); }
+  .cities-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 16px; }
+  .city-card { background: var(--card); border: 1px solid var(--border); border-radius: 18px; padding: 20px; cursor: pointer; transition: all 0.2s; position: relative; animation: fadeUp 0.4s ease both; }
+  .city-card:hover { border-color: var(--accent); transform: translateY(-3px); }
+  .city-card .city-name { font-family: 'Syne', sans-serif; font-weight: 700; font-size: 1rem; margin-bottom: 2px; }
+  .city-card .city-country { font-size: 0.78rem; color: var(--muted); margin-bottom: 12px; }
+  .city-card .city-temp { font-family: 'Syne', sans-serif; font-size: 1.8rem; font-weight: 800; letter-spacing: -0.04em; }
+  .city-card .city-temp.warm { color: var(--warm); }
+  .city-card .city-temp.cold { color: var(--cold); }
+  .city-card .city-temp.mild { color: var(--accent); }
+  .city-card .city-emoji { font-size: 1.6rem; float: right; margin-top: -4px; }
+  .city-card .city-desc { font-size: 0.78rem; color: var(--muted); margin-top: 2px; text-transform: capitalize; }
+  .city-card .remove-btn { position: absolute; top: 10px; left: 10px; background: rgba(255,100,100,0.15); border: none; border-radius: 50%; width: 24px; height: 24px; color: #f87171; font-size: 0.8rem; cursor: pointer; opacity: 0; transition: opacity 0.2s; display: flex; align-items: center; justify-content: center; }
+  .city-card:hover .remove-btn { opacity: 1; }
+
+  .status-msg { text-align: center; padding: 16px; border-radius: 14px; margin-bottom: 24px; display: none; font-size: 0.9rem; }
+  .status-msg.error { background: rgba(248,113,113,0.1); border: 1px solid rgba(248,113,113,0.3); color: #f87171; display: block; }
+  .status-msg.loading { background: var(--glow); border: 1px solid var(--border); color: var(--muted); display: block; }
+  .loader { display: inline-block; width: 14px; height: 14px; border: 2px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.7s linear infinite; vertical-align: middle; margin-right: 8px; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  footer { text-align: center; padding: 48px 0 32px; color: var(--muted); font-size: 0.8rem; border-top: 1px solid var(--border); margin-top: 64px; }
+  footer strong { color: var(--accent); }
+
+  @media (max-width: 600px) {
+    .main-card { padding: 24px; }
+    .temp-big { font-size: 3.5rem; }
+    .card-top { flex-direction: column; }
+    .temp-display { text-align: left; }
+    .weather-emoji { text-align: left; }
+  }
+</style>
+</head>
+<body>
+<div class="container">
+  <header>
+    <div class="logo">World<span>Weather</span></div>
+    <div class="tagline">Live Global Conditions</div>
+  </header>
+
+  <div class="hero">
+    <h1>Weather, <em>Anywhere</em><br>on Earth</h1>
+    <p>Search any city or country — get live conditions instantly</p>
+    <div class="search-bar">
+      <input type="text" id="searchInput" placeholder="Type a city: Tokyo, Paris, Istanbul..." autocomplete="off">
+      <button onclick="searchWeather()">Search</button>
+    </div>
+    <!-- Bayrak emoji Windows'ta çalışmadığı için sadece şehir ismi -->
+    <div class="quick-cities">
+      <button onclick="loadQuick('London')">London</button>
+      <button onclick="loadQuick('Tokyo')">Tokyo</button>
+      <button onclick="loadQuick('New York')">New York</button>
+      <button onclick="loadQuick('Dubai')">Dubai</button>
+      <button onclick="loadQuick('Paris')">Paris</button>
+      <button onclick="loadQuick('Istanbul')">Istanbul</button>
+      <button onclick="loadQuick('Riga')">Riga</button>
+      <button onclick="loadQuick('Sydney')">Sydney</button>
+      <button onclick="loadQuick('Moscow')">Moscow</button>
+      <button onclick="loadQuick('Berlin')">Berlin</button>
+      <button onclick="loadQuick('Beijing')">Beijing</button>
+      <button onclick="loadQuick('Cairo')">Cairo</button>
+      <button onclick="loadQuick('Rome')">Rome</button>
+      <button onclick="loadQuick('Madrid')">Madrid</button>
+      <button onclick="loadQuick('Amsterdam')">Amsterdam</button>
+      <button onclick="loadQuick('Bangkok')">Bangkok</button>
+      <button onclick="loadQuick('Singapore')">Singapore</button>
+      <button onclick="loadQuick('Toronto')">Toronto</button>
+    </div>
+  </div>
+
+  <div class="status-msg" id="statusMsg"></div>
+
+  <div class="main-card" id="mainCard">
+    <div class="card-top">
+      <div class="city-info">
+        <h2 id="cityName">—</h2>
+        <div class="country-line" id="countryLine">—</div>
+        <div class="weather-desc" id="weatherDesc">—</div>
+        <button class="add-to-saved" id="addBtn" onclick="addToSaved()">+ Save this city</button>
+      </div>
+      <div class="temp-display">
+        <span class="weather-emoji" id="weatherEmoji">—</span>
+        <div class="temp-big" id="tempBig">—°</div>
+        <div class="feels-like" id="feelsLike">Feels like —°C</div>
+      </div>
+    </div>
+    <div class="stats-grid" id="statsGrid"></div>
+  </div>
+
+  <div class="saved-section" id="savedSection" style="display:none">
+    <div class="section-title">Saved Cities</div>
+    <div class="cities-grid" id="citiesGrid"></div>
+  </div>
+</div>
+
+<footer>
+  <p>WorldWeather — Course Project 1 &nbsp;|&nbsp; ISMA University &nbsp;|&nbsp; 2024<br>
+  Powered by <strong>Open-Meteo API</strong> — Free &amp; Open Source</p>
+</footer>
+
+<script>
+  let savedCities = JSON.parse(localStorage.getItem('ww_cities') || '[]');
+  let currentData = null;
+
+  const WMO = {
+    0:['☀️','Clear sky'],1:['🌤️','Mainly clear'],2:['⛅','Partly cloudy'],3:['☁️','Overcast'],
+    45:['🌫️','Foggy'],48:['🌫️','Icy fog'],51:['🌦️','Drizzle'],53:['🌦️','Drizzle'],
+    55:['🌧️','Heavy drizzle'],61:['🌧️','Slight rain'],63:['🌧️','Rain'],65:['🌧️','Heavy rain'],
+    71:['🌨️','Slight snow'],73:['❄️','Snow'],75:['❄️','Heavy snow'],77:['🌨️','Snow grains'],
+    80:['🌦️','Showers'],81:['🌧️','Showers'],82:['⛈️','Heavy showers'],
+    85:['🌨️','Snow showers'],86:['❄️','Heavy snow'],95:['⛈️','Thunderstorm'],
+    96:['⛈️','Thunderstorm'],99:['⛈️','Thunderstorm']
+  };
+
+  function getCondition(code) { return WMO[code] || ['🌡️','Unknown']; }
+  function getTempClass(t) { return t >= 28 ? 'warm' : t <= 5 ? 'cold' : 'mild'; }
+  function windDir(deg) { return ['N','NE','E','SE','S','SW','W','NW'][Math.round(deg/45)%8]; }
+
+  async function geocode(query) {
+    const url = `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(query)}&count=1&language=en&format=json`;
+    const res = await fetch(url);
+    const data = await res.json();
+    if (!data.results || !data.results.length) throw new Error('City not found. Try a different spelling.');
+    const r = data.results[0];
+    return { lat: r.latitude, lon: r.longitude, name: r.name, country: r.country || '' };
+  }
+
+  async function fetchWeather(lat, lon) {
+    const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}` +
+      `&current=temperature_2m,relative_humidity_2m,apparent_temperature,weather_code,wind_speed_10m,wind_direction_10m,surface_pressure,visibility` +
+      `&wind_speed_unit=kmh&timezone=auto`;
+    const res = await fetch(url);
+    return await res.json();
+  }
+
+  function showStatus(msg, type) {
+    const el = document.getElementById('statusMsg');
+    el.className = 'status-msg ' + type;
+    el.innerHTML = type === 'loading' ? `<span class="loader"></span>${msg}` : msg;
+  }
+  function clearStatus() { document.getElementById('statusMsg').className = 'status-msg'; }
+
+  function renderMain(geo, weather) {
+    const cur = weather.current;
+    const temp = Math.round(cur.temperature_2m);
+    const feels = Math.round(cur.apparent_temperature);
+    const [emoji, desc] = getCondition(cur.weather_code);
+    const cls = getTempClass(temp);
+
+    document.getElementById('cityName').textContent = geo.name;
+    document.getElementById('countryLine').innerHTML = `📍 <span>${geo.country}</span> · ${new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})}`;
+    document.getElementById('weatherDesc').textContent = desc;
+    document.getElementById('weatherEmoji').textContent = emoji;
+    document.getElementById('tempBig').textContent = temp + '°C';
+    document.getElementById('tempBig').className = 'temp-big ' + cls;
+    document.getElementById('feelsLike').textContent = `Feels like ${feels}°C`;
+
+    // Kısa label — taşmasın
+    const stats = [
+      { label: 'Humidity',   value: cur.relative_humidity_2m + '%' },
+      { label: 'Wind',       value: cur.wind_speed_10m + ' km/h' },
+      { label: 'Direction',  value: windDir(cur.wind_direction_10m) },
+      { label: 'Pressure',   value: Math.round(cur.surface_pressure) + ' hPa' },
+      { label: 'Visibility', value: cur.visibility ? (cur.visibility/1000).toFixed(1) + ' km' : 'N/A' },
+      { label: 'Condition',  value: desc },
+    ];
+
+    document.getElementById('statsGrid').innerHTML = stats.map(s => `
+      <div class="stat-item">
+        <div class="stat-label">${s.label}</div>
+        <div class="stat-value">${s.value}</div>
+      </div>`).join('');
+
+    const alreadySaved = savedCities.some(c => c.name === geo.name);
+    const addBtn = document.getElementById('addBtn');
+    addBtn.textContent = alreadySaved ? '✓ Already saved' : '+ Save this city';
+    addBtn.className = 'add-to-saved' + (alreadySaved ? ' saved-state' : '');
+
+    document.getElementById('mainCard').className = 'main-card visible';
+    currentData = { geo, weather };
+  }
+
+  async function searchWeather() {
+    const query = document.getElementById('searchInput').value.trim();
+    if (!query) return;
+    showStatus('Searching for ' + query + '...', 'loading');
+    document.getElementById('mainCard').className = 'main-card';
+    try {
+      const geo = await geocode(query);
+      showStatus('Fetching live weather...', 'loading');
+      const weather = await fetchWeather(geo.lat, geo.lon);
+      clearStatus();
+      renderMain(geo, weather);
+    } catch(e) {
+      showStatus('⚠️ ' + e.message, 'error');
+    }
+  }
+
+  async function loadQuick(city) {
+    document.getElementById('searchInput').value = city;
+    await searchWeather();
+  }
+
+  document.getElementById('searchInput').addEventListener('keydown', e => {
+    if (e.key === 'Enter') searchWeather();
+  });
+
+  function addToSaved() {
+    if (!currentData) return;
+    const { geo, weather } = currentData;
+    if (savedCities.some(c => c.name === geo.name)) return;
+    const cur = weather.current;
+    const [emoji, desc] = getCondition(cur.weather_code);
+    savedCities.push({ name: geo.name, country: geo.country, lat: geo.lat, lon: geo.lon,
+      temp: Math.round(cur.temperature_2m), emoji, desc, cls: getTempClass(Math.round(cur.temperature_2m)) });
+    localStorage.setItem('ww_cities', JSON.stringify(savedCities));
+    renderSaved();
+    document.getElementById('addBtn').textContent = '✓ Saved!';
+    document.getElementById('addBtn').className = 'add-to-saved saved-state';
+  }
+
+  function removeCity(name) {
+    savedCities = savedCities.filter(c => c.name !== name);
+    localStorage.setItem('ww_cities', JSON.stringify(savedCities));
+    renderSaved();
+  }
+
+  function renderSaved() {
+    const section = document.getElementById('savedSection');
+    const grid = document.getElementById('citiesGrid');
+    if (!savedCities.length) { section.style.display = 'none'; return; }
+    section.style.display = 'block';
+    grid.innerHTML = savedCities.map((c,i) => `
+      <div class="city-card" style="animation-delay:${i*0.05}s" onclick="loadQuick('${c.name}')">
+        <button class="remove-btn" onclick="event.stopPropagation();removeCity('${c.name}')">✕</button>
+        <span class="city-emoji">${c.emoji}</span>
+        <div class="city-name">${c.name}</div>
+        <div class="city-country">${c.country}</div>
+        <div class="city-temp ${c.cls}">${c.temp}°C</div>
+        <div class="city-desc">${c.desc}</div>
+      </div>`).join('');
+  }
+
+  renderSaved();
+  setTimeout(() => loadQuick('Riga'), 300);
+</script>
+</body>
+</html>
